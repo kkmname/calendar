@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/lib/bootstrap-5.3.1-dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/lib/bootstrap-icons-1.10.5/font/bootstrap-icons.css">
+    <script src="/lib/bootstrap-5.3.1-dist/js/bootstrap.js"></script>
+    <script src="/lib/fullcalendar-6.1.8/dist/index.global.js"></script>
+    <script>
+        var calendar;
+
+        document.addEventListener("DOMContentLoaded", async function() {
+            /* retrieve resource */
+            const eventData = await getData();
+            /* FullCalendar */
+            var calendarEl = document.getElementById("calendar");
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                timeZone: 'UTC',
+                themeSystem: 'standard',
+                headerToolbar: {
+                    start: 'title',
+                    end: 'today dayGridMonth,dayGridWeek,dayGridDay prev,next'
+                },
+                footerToolbar: {},
+                titleFormat: {
+                    year: 'numeric',
+                    month: 'long'
+                },
+                buttonIcons: {},
+                weekNumbers: true,
+                dayMaxEvents: true,
+                businessHours: {
+                    dayOfWeek: [1, 2, 3, 4, 5],
+                },
+
+                events: eventData,
+
+                dateClick: function(info) {
+                    // modal clear
+                    document.getElementById("modal-title-label").innerHTML = "";
+                    document.getElementById("id").value = "";
+                    document.getElementById("start").value = "";
+                    document.getElementById("end").value = "";
+                    document.getElementById("title").value = "";
+                    document.getElementById("description").value = "";
+
+                    // set Data
+                    document.getElementById("modal-title-label").innerHTML = "Event Register";
+                    document.getElementById("start").value = info.dateStr;
+                    document.getElementById("end").value = info.dateStr;
+
+                    // modal open
+                    document.getElementById("modal-trigger").click();
+                },
+
+                eventClick: function(info) {
+                    const modalTitle = "Event Viewer";
+                    const id = info.event.id;
+                    const start = info.event.start.toISOString().slice(0, 10);
+                    const end = info.event.end.toISOString().slice(0, 10);
+                    const title = info.event.title;
+                    const description = isEmpty(info.event.extendedProps.description) ? "" : info.event.extendedProps.description;
+
+                    // modal clear
+                    document.getElementById("modal-title-label").innerHTML = "";
+                    document.getElementById("id").value = "";
+                    document.getElementById("start").value = "";
+                    document.getElementById("end").value = "";
+                    document.getElementById("title").value = "";
+                    document.getElementById("description").value = "";
+
+                    // set Data
+                    document.getElementById("modal-title-label").innerHTML = modalTitle;
+                    document.getElementById("id").value = id;
+                    document.getElementById("start").value = start;
+                    document.getElementById("end").value = end;
+                    document.getElementById("title").value = title;
+                    document.getElementById("description").value = description;
+
+                    // modal open
+                    document.getElementById("modal-trigger").click();
+                },
+            });
+            calendar.render();
+        });
+
+        async function getData() {
+           try {
+                // 서버에서 데이터 가져오기
+                let response = await fetch("/event");
+                if (!response.ok) {
+                    throw new Error("데이터를 가져오는데 실패했습니다");
+                }
+                const data = await response.json();
+
+                // 데이터 배열 가공하여 속성명 변경
+                const eventData = data.map(item => ({
+                    id: item.id,
+                    start: item.startDate,
+                    end: item.endDate,
+                    title: item.title,
+                    description: item.description,
+                }));
+
+                return eventData;
+            } catch (error) {
+                console.log(error);
+                throw error;
+            }
+        }
+
+        function registerEvent() {
+            const form = document.getElementById("form-data");
+
+            if (isEmpty(form.title.value)) {
+                alert("Title은 필수입니다.");
+                return;
+            }
+
+            fetch("/event", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    startDate: form.start.value,
+                    endDate: form.end.value,
+                    title: form.title.value,
+                    description: form.description.value
+                }),
+            });
+
+            // render
+            let e = {
+                start: form.start.value,
+                end: form.end.value,
+                title: form.title.value,
+                extendedProps: {
+                    description: form.description.value
+                },
+            };
+            calendar.addEvent(e);
+
+
+            // modal close
+            document.getElementById("modal-close").click();
+        }
+
+        function isEmpty(data) {
+            if (data == "" || data == null || data == undefined || (data != null && typeof data == "object" && !Object.keys(data).length)) {
+                return true;
+            }
+            return false;
+        }
+    </script>
+    <title>kim's calendar</title>
+</head>
+<body>
+    <header><b>kim's calendar</b></header>
+    <main>
+        <div id="calendar"></div>
+
+        <!-- Modal Viewer -->
+        <button type="button" class="fade" id="modal-trigger" data-bs-toggle="modal" data-bs-target="#modal-calendar"></button>
+        <!-- Modal for viewer -->
+        <div class="modal fade" id="modal-calendar" tabindex="-1" aria-labelledby="ModalCalendarLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-title-label">Event-Viewer</h5><br>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form class="form-floating" id="form-data">
+                            <!-- hidden value -->
+                            <input type="hidden" id="id" name="id">
+                            <!-- // hidden value -->
+
+                            <div class="input-group mb-3">
+                                <span class="input-group-text">Start Date</span>
+                                <input type="date" class="form-control" id="start" name="start" aria-label="start">
+                            </div>
+
+                            <div class="input-group mb-3">
+                                <span class="input-group-text">End&nbsp;&nbsp; Date</span>
+                                <input type="date" class="form-control" id="end" name="end" aria-label="end">
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="title" name="title" aria-label="title">
+                                <label for="title">Title</label>
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <textarea class="form-control" id="description" name="description" aria-label="description" style="height:30em"></textarea>
+                                <label for="description">Description</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="modal-close" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" onclick="registerEvent()" class="btn btn-primary">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
